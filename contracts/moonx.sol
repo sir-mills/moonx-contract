@@ -13,7 +13,7 @@ contract DecentralLearning is Ownable, Pausable {
 
     uint256 public constant WATCH_THRESHOLD = 0;
     uint256 public constant ENROLL_THRESHOLD = 5;
-    uint256 public constant POST_THRESHOLD = 50;
+    uint256 public constant POST_THRESHOLD = 5;
     uint256 public constant STUDENT_REWARD_AMOUNT = 10 ether; // 10 MAND tokens
     uint256 public constant CREATOR_REWARD_AMOUNT = 1 ether; // 1 MAND token per passed student
     uint256 public constant platformTX = 0.75 ether; // 0.75 MAND tokens
@@ -65,7 +65,7 @@ contract DecentralLearning is Ownable, Pausable {
         reputationContract = IReputationContract(_reputationContract);
     }
 
-    modifier collectGasFee() {
+    modifier collectTX() {
         require(msg.value >= platformTX, "Insufficient gas fee");
         accumulatedFees += platformTX;
         uint256 excess = msg.value - platformTX;
@@ -75,7 +75,7 @@ contract DecentralLearning is Ownable, Pausable {
         _;
     }
 
-    function createCourse(string memory _metadataURI, Quiz[] memory _quizzes) external payable whenNotPaused collectGasFee {
+    function createCourse(string memory _metadataURI, Quiz[] memory _quizzes) external payable whenNotPaused collectTX {
         require(reputationContract.reputation(msg.sender) >= POST_THRESHOLD, "Insufficient reputation to create course");
         uint256 courseId = courseCount++;
         courses[courseId] = Course(msg.sender, _metadataURI, false, 0, 0, 0);
@@ -93,7 +93,7 @@ contract DecentralLearning is Ownable, Pausable {
         emit CourseApproved(_courseId);
     }
 
-    function enrollInCourse(uint256 _courseId) external payable whenNotPaused collectGasFee {
+    function enrollInCourse(uint256 _courseId) external payable whenNotPaused collectTX {
         require(reputationContract.reputation(msg.sender) >= ENROLL_THRESHOLD, "Insufficient reputation to enroll");
         require(courses[_courseId].approved, "Course not approved");
         require(!enrollments[msg.sender][_courseId].isEnrolled, "Already enrolled");
@@ -103,7 +103,7 @@ contract DecentralLearning is Ownable, Pausable {
         emit UserEnrolled(_courseId, msg.sender);
     }
 
-    function attemptQuiz(uint256 _courseId, string[] memory _answers) external payable collectGasFee {
+    function attemptQuiz(uint256 _courseId, string[] memory _answers) external payable  {
         Enrollment storage enrollment = enrollments[msg.sender][_courseId];
         require(enrollment.isEnrolled, "User not enrolled in this course");
         require(enrollment.attemptCount < 2, "Maximum attempts reached");
@@ -131,7 +131,7 @@ contract DecentralLearning is Ownable, Pausable {
         emit QuizAttempted(_courseId, msg.sender, passed);
     }
 
-    function claimStudentReward(uint256 _courseId) external payable whenNotPaused collectGasFee {
+    function claimStudentReward(uint256 _courseId) external payable whenNotPaused collectTX {
         Enrollment storage enrollment = enrollments[msg.sender][_courseId];
         require(enrollment.quizBalance > 0, "No rewards to claim");
 
@@ -144,7 +144,7 @@ contract DecentralLearning is Ownable, Pausable {
         emit RewardClaimed(_courseId, msg.sender, rewardAmount);
     }
 
-    function claimCreatorReward(uint256 _courseId) external payable whenNotPaused collectGasFee {
+    function claimCreatorReward(uint256 _courseId) external payable whenNotPaused collectTX {
         Course storage course = courses[_courseId];
         require(msg.sender == course.creator, "Only course creator can claim reward");
         require(course.creatorBalance > 0, "No rewards to claim");
@@ -158,7 +158,7 @@ contract DecentralLearning is Ownable, Pausable {
         emit CreatorRewardClaimed(_courseId, msg.sender, rewardAmount);
     }
 
-    function withdrawGasFees() external onlyOwner {
+    function withdrawPlatformTX() external onlyOwner {
         uint256 amount = accumulatedFees;
         accumulatedFees = 0;
 
